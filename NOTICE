@@ -1,0 +1,7 @@
+sigma_rules.xml contains Wazuh rules generated from SigmaHQ detection rules
+(https://github.com/SigmaHQ/sigma). Those rules are licensed by their respective
+authors under the Detection Rule License (DRL) 1.1
+(https://github.com/SigmaHQ/Detection-Rule-License). Each converted rule's comment
+gives the original Sigma rule ID and path; the authors are named in those source
+rule files. Everything else in this repository is released under the MIT License
+(see LICENSE).
