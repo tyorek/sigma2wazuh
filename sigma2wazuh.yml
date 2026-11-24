@@ -1,0 +1,44 @@
+# sigma2wazuh configuration (P6, 2026-11-23). Re-run sigma2wazuh.py after editing.
+sigma_root: sigma-repo/rules   # git clone --depth 1 https://github.com/SigmaHQ/sigma.git sigma-repo
+sigma_commit: 7228ccc
+first_rule_id: 101000
+statuses: [stable, test]
+min_level: low
+include:
+  - windows/builtin/security/**/*.yml   # DC01/DC02/desktop Security channel
+  - windows/builtin/system/**/*.yml     # System channel (service installs, log clears)
+  - web/webserver_generic/*.yml         # NPM access logs are webserver logs (inbound)
+  - web/proxy_generic/*.yml             # only the user-agent rules, see only_fields
+# NPM is a reverse proxy: the proxy_generic rules about where clients browse (URLs, TLDs, downloads) describe
+# outbound traffic and would just fire on Nextcloud downloads. Keep only rules that test the user agent.
+only_fields:
+  proxy: [c-useragent]
+# Event IDs the Windows agents never send (Wazuh's default Security query drops them) or that need object-access
+# SACLs this domain doesn't set. A rule is skipped only when ALL of its event IDs are in this list.
+skip_event_ids: [5145, 5156, 5447, 4656, 4658, 4663, 4660, 4670, 4690, 4703, 4907, 5152, 5157]
+exclude_ids: []
+# Experimental rules worth having in an AD lab anyway (AD attack techniques)
+include_experimental_ids:
+  - 3e2f1b2c-4d5e-11ee-be56-0242ac120002   # Potential AS-REP Roasting via Kerberos TGT Requests (4768 arrives)
+  - e5ac86dd-2da1-454b-be74-05d26c769d7d   # Windows Default Domain GPO Modification
+  - b07e58cf-cacc-4135-8473-ccb2eba63dd2   # Potential Kerberos Coercion by Spoofing SPNs via DNS Manipulation
+  - 015ff932-4156-41ae-9d4c-1443995611fd   # HackTool - Defendnot Default Scheduled Task Activity
+# Sigma rules missing an ATT&CK tag that has an obvious one
+extra_mitre:
+  3e2f1b2c-4d5e-11ee-be56-0242ac120002: [T1558.004]   # AS-REP roasting
+# The Sigma repo already uses ATT&CK v18 IDs that Wazuh 4.14's MITRE database doesn't have (Wazuh drops unknown IDs
+# from the alert). Map them to the pre-v18 technique Wazuh knows.
+mitre_map:
+  T1685: T1562          # defense impairment -> Impair Defenses
+  T1685.001: T1562       # mixed use in Sigma (event auditing disabled, device install blocked)
+  T1685.005: T1070.001  # clear Windows event logs
+# Site-specific exclusions, added to every alternative of the named Sigma rule as an extra "NOT field matches".
+# regex is a whole-value PCRE2 body (anchored by the converter, case-insensitive).
+local_filters:
+  78d5cab4-557e-454f-9fb9-a222bd0d5edc:       # External Remote SMB Logon from Public IP
+    # the LAN's own IPv6 is global (2001:db8:4a00:1f80::/57), so DC logons from LAN hosts looked "public"
+    - {field: win.eventdata.ipAddress, regex: '2001:db8:4a00:1f[89a-f][0-9a-f]:.*'}
+  259a9cdf-c4dd-4fa2-b243-2269e5ab18a2:       # External Remote RDP Logon from Public IP
+    - {field: win.eventdata.ipAddress, regex: '2001:db8:4a00:1f[89a-f][0-9a-f]:.*'}
+  f88e112a-21aa-44bd-9b01-6ee2a2bbbed1:       # Failed Logon From Public IP
+    - {field: win.eventdata.ipAddress, regex: '2001:db8:4a00:1f[89a-f][0-9a-f]:.*'}
